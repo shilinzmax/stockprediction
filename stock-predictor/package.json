@@ -1,0 +1,30 @@
+{
+  "name": "stock-predictor",
+  "version": "1.0.0",
+  "description": "AI驱动的股票预测系统 - 基于 LangGraph 工作流",
+  "scripts": {
+    "dev": "./start_dev.sh",
+    "install-backend": "cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt",
+    "install-frontend": "cd frontend && npm install",
+    "install": "npm run install-backend && npm run install-frontend",
+    "start-backend": "cd backend && source venv/bin/activate && python app.py",
+    "start-frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "test": "echo \"测试功能待实现\"",
+    "clean": "rm -rf backend/venv backend/data/* frontend/node_modules frontend/dist"
+  },
+  "keywords": [
+    "stock",
+    "prediction",
+    "ai",
+    "langgraph",
+    "fastapi",
+    "react",
+    "typescript"
+  ],
+  "author": "Stock Predictor Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
