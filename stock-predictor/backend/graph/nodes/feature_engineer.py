@@ -1,8 +1,8 @@
 from typing import Dict, Any
 import pandas as pd
 import numpy as np
-from ...core.state import WorkflowState
-from ...core.indicators import TechnicalIndicators
+from core.state import WorkflowState
+from core.indicators import TechnicalIndicators
 
 
 class FeatureEngineerNode:

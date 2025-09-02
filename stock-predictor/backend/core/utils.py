@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pathlib import Path
+from .mock_data import mock_data_generator
+from .api_manager import api_manager
 
 
 class DataCache:
@@ -62,7 +64,7 @@ class StockDataFetcher:
     def __init__(self):
         self.cache = DataCache()
     
-    def fetch_stock_data(self, symbol: str, period: str = "1mo") -> pd.DataFrame:
+    async def fetch_stock_data(self, symbol: str, period: str = "1mo") -> pd.DataFrame:
         """获取股票数据"""
         # 先尝试从缓存获取
         cached_data = self.cache.get_cached_data(symbol, period)
@@ -70,16 +72,11 @@ class StockDataFetcher:
             return cached_data
         
         try:
-            # 从 yfinance 获取数据
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period=period)
+            # 使用API管理器获取数据
+            data = await api_manager.get_stock_data(symbol, period)
             
             if data.empty:
                 raise ValueError(f"No data found for symbol: {symbol}")
-            
-            # 清理数据
-            data = data.reset_index()
-            data.columns = [col.lower() for col in data.columns]
             
             # 缓存数据
             self.cache.cache_data(symbol, period, data)
@@ -87,33 +84,53 @@ class StockDataFetcher:
             return data
             
         except Exception as e:
-            raise ValueError(f"Failed to fetch data for {symbol}: {str(e)}")
+            print(f"All APIs failed for {symbol}, using mock data: {str(e)}")
+            # 使用Mock数据作为备用
+            mock_data = mock_data_generator.generate_stock_data(symbol, period)
+            # 缓存Mock数据
+            self.cache.cache_data(symbol, period, mock_data)
+            return mock_data
     
-    def get_stock_info(self, symbol: str) -> Dict[str, Any]:
+    def fetch_stock_data_sync(self, symbol: str, period: str = "1mo") -> pd.DataFrame:
+        """同步获取股票数据"""
+        import asyncio
+        try:
+            # 检查是否在事件循环中
+            loop = asyncio.get_running_loop()
+            # 如果在事件循环中，使用线程池执行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.fetch_stock_data(symbol, period))
+                return future.result()
+        except RuntimeError:
+            # 如果没有运行的事件循环，直接运行
+            return asyncio.run(self.fetch_stock_data(symbol, period))
+    
+    async def get_stock_info(self, symbol: str) -> Dict[str, Any]:
         """获取股票基本信息"""
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            
-            return {
-                "symbol": symbol,
-                "name": info.get("longName", symbol),
-                "sector": info.get("sector", "Unknown"),
-                "industry": info.get("industry", "Unknown"),
-                "market_cap": info.get("marketCap", 0),
-                "current_price": info.get("currentPrice", 0),
-                "currency": info.get("currency", "USD")
-            }
+            # 使用API管理器获取信息
+            info = await api_manager.get_stock_info(symbol)
+            return info
         except Exception as e:
-            return {
-                "symbol": symbol,
-                "name": symbol,
-                "sector": "Unknown",
-                "industry": "Unknown",
-                "market_cap": 0,
-                "current_price": 0,
-                "currency": "USD"
-            }
+            print(f"All APIs failed for {symbol} info, using mock info: {str(e)}")
+            # 使用Mock信息作为备用
+            return mock_data_generator.get_stock_info(symbol)
+    
+    def get_stock_info_sync(self, symbol: str) -> Dict[str, Any]:
+        """同步获取股票基本信息"""
+        import asyncio
+        try:
+            # 检查是否在事件循环中
+            loop = asyncio.get_running_loop()
+            # 如果在事件循环中，使用线程池执行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.get_stock_info(symbol))
+                return future.result()
+        except RuntimeError:
+            # 如果没有运行的事件循环，直接运行
+            return asyncio.run(self.get_stock_info(symbol))
 
 
 def validate_symbol(symbol: str) -> bool:

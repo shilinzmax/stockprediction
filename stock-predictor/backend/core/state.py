@@ -1,10 +1,12 @@
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import pandas as pd
 
 
 class StockData(BaseModel):
     """股票数据模型"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     symbol: str
     data: pd.DataFrame
     indicators: Dict[str, Any]
@@ -49,6 +51,8 @@ class TopStocksResponse(BaseModel):
 
 class WorkflowState(BaseModel):
     """LangGraph 工作流状态"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     symbol: str
     timeframe: str
     raw_data: Optional[pd.DataFrame] = None

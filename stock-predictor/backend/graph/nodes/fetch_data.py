@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
-from ...core.state import WorkflowState
-from ...core.utils import StockDataFetcher
+from core.state import WorkflowState
+from core.utils import StockDataFetcher
 
 
 class FetchDataNode:
@@ -22,8 +22,8 @@ class FetchDataNode:
             
             period = period_map.get(state.timeframe, "1mo")
             
-            # 获取股票数据
-            raw_data = self.data_fetcher.fetch_stock_data(state.symbol, period)
+            # 获取股票数据（使用同步方法）
+            raw_data = self.data_fetcher.fetch_stock_data_sync(state.symbol, period)
             
             if raw_data.empty:
                 return {

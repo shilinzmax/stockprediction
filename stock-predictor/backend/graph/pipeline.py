@@ -1,11 +1,11 @@
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
 from core.state import WorkflowState
-from .nodes.fetch_data import FetchDataNode
-from .nodes.feature_engineer import FeatureEngineerNode
-from .nodes.llm_analyze import LLMAnalyzeNode
-from .nodes.make_advice import MakeAdviceNode
-from .nodes.report import ReportNode
+from graph.nodes.fetch_data import FetchDataNode
+from graph.nodes.feature_engineer import FeatureEngineerNode
+from graph.nodes.llm_analyze import LLMAnalyzeNode
+from graph.nodes.make_advice import MakeAdviceNode
+from graph.nodes.report import ReportNode
 
 
 class StockPredictionPipeline:

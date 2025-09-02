@@ -1,13 +1,13 @@
 from typing import Dict, Any
-from ...core.state import WorkflowState
-from ...core.llm import llm_analyzer
+from core.state import WorkflowState
+from core.llm_manager import get_llm_analyzer
 
 
 class LLMAnalyzeNode:
     """LLM 分析节点"""
     
     def __init__(self):
-        self.llm = llm_analyzer
+        self.llm = get_llm_analyzer()
     
     def __call__(self, state: WorkflowState) -> Dict[str, Any]:
         """使用 LLM 分析股票"""
@@ -33,6 +33,13 @@ class LLMAnalyzeNode:
                 data=analysis_data,
                 timeframe=state.timeframe
             )
+            
+            # 检查LLM结果是否包含错误
+            if llm_result.get("error"):
+                return {
+                    "llm_analysis": None,
+                    "error": llm_result["error"]
+                }
             
             return {
                 "llm_analysis": llm_result,

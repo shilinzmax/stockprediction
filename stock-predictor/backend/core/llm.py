@@ -7,6 +7,11 @@ import pandas as pd
 import openai
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
+from dotenv import load_dotenv
+import ollama
+
+# 加载环境变量
+load_dotenv()
 
 
 class MockLLM:
@@ -120,27 +125,241 @@ class MockLLM:
         }
 
 
+class OllamaLLM:
+    """Ollama 本地 LLM 分析器"""
+    
+    def __init__(self, model_name: str = "qwen2.5:7b"):
+        self.model_name = model_name
+        self.llm = None
+        self._initialize_llm()
+    
+    def _initialize_llm(self):
+        """初始化Ollama LLM实例"""
+        try:
+            # 检查模型是否可用
+            models = ollama.list()
+            available_models = [model.model for model in models.models]
+            
+            if self.model_name not in available_models:
+                print(f"❌ 模型 {self.model_name} 未找到，可用模型: {available_models}")
+                self.llm = None
+                return
+            
+            # 测试连接
+            test_response = ollama.chat(
+                model=self.model_name,
+                messages=[{'role': 'user', 'content': 'Hello'}]
+            )
+            
+            self.llm = True  # 标记为可用
+            print(f"✅ Ollama模型初始化成功: {self.model_name}")
+            
+        except Exception as e:
+            print(f"❌ Ollama模型初始化失败: {str(e)}")
+            self.llm = None
+    
+    def _check_and_reinitialize(self):
+        """检查并重新初始化LLM"""
+        if not self.llm:
+            print("🔄 重新初始化Ollama模型...")
+            self._initialize_llm()
+    
+    def analyze_stock(self, symbol: str, data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
+        """使用 Ollama 分析股票"""
+        # 检查并重新初始化LLM
+        self._check_and_reinitialize()
+        
+        if not self.llm:
+            return {
+                "error": "Ollama model not available",
+                "direction": None,
+                "probability": None,
+                "price_change_percent": None,
+                "reasoning": None,
+                "confidence": None
+            }
+        
+        try:
+            # 构建分析提示
+            indicators_summary = self._format_indicators(data.get('indicators', {}))
+            signal_info = data.get('signal_strength', {})
+            
+            prompt = f"""
+作为专业的股票分析师，请基于以下技术指标数据对股票 {symbol} 进行 {timeframe} 时间框架的分析：
+
+技术指标摘要：
+{indicators_summary}
+
+信号强度：{signal_info.get('strength', 'neutral')}
+信号得分：{signal_info.get('score', 0)}
+
+请以JSON格式返回分析结果，包含以下字段：
+- direction: "up", "down", 或 "neutral"
+- probability: 0-100之间的数字，表示预测准确性的概率
+- price_change_percent: 预期价格变化百分比
+- reasoning: 详细的分析理由（中文）
+- confidence: "high", "medium", 或 "low"
+- risk_factors: 风险因素列表
+
+注意：请保持客观和谨慎，考虑市场风险。
+"""
+            
+            response = ollama.chat(
+                model=self.model_name,
+                messages=[
+                    {'role': 'system', 'content': '你是一个专业的股票技术分析师，擅长基于技术指标进行股票走势预测。'},
+                    {'role': 'user', 'content': prompt}
+                ]
+            )
+            
+            # 解析响应
+            try:
+                result = json.loads(response['message']['content'])
+                return result
+            except json.JSONDecodeError:
+                # 如果解析失败，返回默认结果
+                return {
+                    "direction": "neutral",
+                    "probability": 50.0,
+                    "price_change_percent": 0.0,
+                    "reasoning": "技术分析结果解析失败，建议谨慎操作。",
+                    "confidence": "low",
+                    "risk_factors": ["数据解析异常"]
+                }
+                
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return {
+                "error": "Ollama model not available",
+                "direction": None,
+                "probability": None,
+                "price_change_percent": None,
+                "reasoning": None,
+                "confidence": None
+            }
+    
+    def generate_top_stocks(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """生成Top 10股票建议"""
+        # 检查并重新初始化LLM
+        self._check_and_reinitialize()
+        
+        if not self.llm:
+            return {
+                "error": "Ollama model not available",
+                "recommendations": [],
+                "generated_at": None,
+                "disclaimer": None
+            }
+        
+        try:
+            prompt = f"""
+作为专业的投资顾问，请基于当前市场情况推荐10只具有投资潜力的股票。
+
+请以JSON格式返回推荐结果，包含以下字段：
+- recommendations: 包含10个股票对象的数组，每个对象包含：
+  - symbol: 股票代码
+  - name: 公司名称
+  - direction: "up", "down", 或 "neutral"
+  - probability: 0-100之间的数字
+  - reasoning: 推荐理由（中文）
+  - risk_level: "low", "medium", 或 "high"
+  - expected_return: 预期收益率（如"+5.2%"）
+- generated_at: 生成时间
+- disclaimer: 免责声明
+
+注意：请选择知名的大盘股，并保持客观分析。
+"""
+            
+            response = ollama.chat(
+                model=self.model_name,
+                messages=[
+                    {'role': 'system', 'content': '你是一个专业的投资顾问，擅长股票分析和投资建议。'},
+                    {'role': 'user', 'content': prompt}
+                ]
+            )
+            
+            try:
+                result = json.loads(response['message']['content'])
+                return result
+            except json.JSONDecodeError:
+                return {
+                    "error": "Ollama model not available",
+                    "recommendations": [],
+                    "generated_at": None,
+                    "disclaimer": None
+                }
+                
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return {
+                "error": "Ollama model not available",
+                "recommendations": [],
+                "generated_at": None,
+                "disclaimer": None
+            }
+    
+    def _format_indicators(self, indicators: Dict[str, Any]) -> str:
+        """格式化技术指标数据"""
+        if not indicators:
+            return "无技术指标数据"
+        
+        summary = []
+        for key, value in indicators.items():
+            if isinstance(value, (int, float)) and not pd.isna(value):
+                summary.append(f"{key}: {value:.2f}")
+            elif hasattr(value, 'iloc') and len(value) > 0:
+                summary.append(f"{key}: {value.iloc[-1]:.2f}")
+        
+        return "\n".join(summary[:10])  # 限制显示前10个指标
+
+
 class OpenAILLM:
     """OpenAI LLM 分析器"""
     
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if self.api_key:
-            openai.api_key = self.api_key
-            self.llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
-                temperature=0.3,
-                max_tokens=1000
-            )
-        else:
+        self.llm = None
+        self._initialize_llm()
+    
+    def _initialize_llm(self):
+        """初始化LLM实例"""
+        if self.api_key and not self.llm:
+            try:
+                openai.api_key = self.api_key
+                self.llm = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    temperature=0.3,
+                    max_tokens=1000
+                )
+                print(f"✅ GPT模型初始化成功: {self.llm.model_name}")
+            except Exception as e:
+                print(f"❌ GPT模型初始化失败: {str(e)}")
+                self.llm = None
+        elif not self.api_key:
+            print("⚠️ 未配置OpenAI API密钥")
             self.llm = None
+    
+    def _check_and_reinitialize(self):
+        """检查并重新初始化LLM"""
+        if not self.llm and self.api_key:
+            print("🔄 重新初始化GPT模型...")
+            self._initialize_llm()
     
     def analyze_stock(self, symbol: str, data: Dict[str, Any], timeframe: str) -> Dict[str, Any]:
         """使用 OpenAI 分析股票"""
+        # 检查并重新初始化LLM
+        self._check_and_reinitialize()
+        
         if not self.llm:
-            # 如果没有 API key，使用 Mock LLM
-            mock_llm = MockLLM()
-            return mock_llm.analyze_stock(symbol, data, timeframe)
+            # 如果没有 API key，返回错误
+            return {
+                "error": "GPT model not work, figure out how to fix it",
+                "direction": None,
+                "probability": None,
+                "price_change_percent": None,
+                "reasoning": None,
+                "confidence": None
+            }
         
         try:
             # 构建分析提示
@@ -191,15 +410,28 @@ class OpenAILLM:
                 
         except Exception as e:
             print(f"OpenAI API error: {e}")
-            # 出错时使用 Mock LLM
-            mock_llm = MockLLM()
-            return mock_llm.analyze_stock(symbol, data, timeframe)
+            # 出错时返回错误信息
+            return {
+                "error": "GPT model not work, figure out how to fix it",
+                "direction": None,
+                "probability": None,
+                "price_change_percent": None,
+                "reasoning": None,
+                "confidence": None
+            }
     
     def generate_top_stocks(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         """生成Top 10股票建议"""
+        # 检查并重新初始化LLM
+        self._check_and_reinitialize()
+        
         if not self.llm:
-            mock_llm = MockLLM()
-            return mock_llm.generate_top_stocks(market_data)
+            return {
+                "error": "GPT model not work, figure out how to fix it",
+                "recommendations": [],
+                "generated_at": None,
+                "disclaimer": None
+            }
         
         try:
             prompt = f"""
@@ -231,13 +463,22 @@ class OpenAILLM:
                 result = json.loads(response.content)
                 return result
             except json.JSONDecodeError:
-                mock_llm = MockLLM()
-                return mock_llm.generate_top_stocks(market_data)
+                return {
+                    "error": "GPT model not work, figure out how to fix it",
+                    "recommendations": [],
+                    "generated_at": None,
+                    "disclaimer": None
+                }
                 
         except Exception as e:
             print(f"OpenAI API error: {e}")
-            mock_llm = MockLLM()
-            return mock_llm.generate_top_stocks(market_data)
+            # 出错时返回错误信息
+            return {
+                "error": "GPT model not work, figure out how to fix it",
+                "recommendations": [],
+                "generated_at": None,
+                "disclaimer": None
+            }
     
     def _format_indicators(self, indicators: Dict[str, Any]) -> str:
         """格式化技术指标数据"""
@@ -254,5 +495,18 @@ class OpenAILLM:
         return "\n".join(summary[:10])  # 限制显示前10个指标
 
 
+# 全局 LLM 实例 - 根据环境变量选择模型
+def get_llm_analyzer():
+    """根据环境变量选择LLM分析器"""
+    llm_type = os.getenv("LLM_TYPE", "openai").lower()
+    
+    if llm_type == "ollama":
+        model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+        return OllamaLLM(model_name=model_name)
+    elif llm_type == "mock":
+        return MockLLM()
+    else:
+        return OpenAILLM()
+
 # 全局 LLM 实例
-llm_analyzer = OpenAILLM()
+llm_analyzer = get_llm_analyzer()
