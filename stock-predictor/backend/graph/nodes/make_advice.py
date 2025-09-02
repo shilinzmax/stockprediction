@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import random
-from core.state import WorkflowState
+from backend.core.state import WorkflowState
 
 
 class MakeAdviceNode:

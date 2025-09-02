@@ -6,11 +6,11 @@ from typing import List, Dict, Any
 import os
 from dotenv import load_dotenv
 
-from core.state import PredictionRequest, PredictionResult, TopStocksResponse
-from core.utils import StockDataFetcher, validate_symbol
-from core.indicators import TechnicalIndicators
-from core.llm_manager import get_llm_analyzer, get_gpt_status
-from graph.pipeline import StockPredictionPipeline
+from backend.core.state import PredictionRequest, PredictionResult, TopStocksResponse
+from backend.core.utils import StockDataFetcher, validate_symbol
+from backend.core.indicators import TechnicalIndicators
+from backend.core.llm_manager import get_llm_analyzer, get_gpt_status
+from backend.graph.pipeline import StockPredictionPipeline
 
 # 加载环境变量
 load_dotenv()

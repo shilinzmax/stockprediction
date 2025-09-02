@@ -1,6 +1,6 @@
 from typing import Dict, Any
-from core.state import WorkflowState
-from core.llm_manager import get_llm_analyzer
+from backend.core.state import WorkflowState
+from backend.core.llm_manager import get_llm_analyzer
 
 
 class LLMAnalyzeNode:

@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
-from core.state import WorkflowState
-from core.utils import StockDataFetcher
+from backend.core.state import WorkflowState
+from backend.core.utils import StockDataFetcher
 
 
 class FetchDataNode:
